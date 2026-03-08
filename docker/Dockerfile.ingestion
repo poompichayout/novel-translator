@@ -1,0 +1,32 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY services/ingestion/go.mod ./
+# COPY services/ingestion/go.sum ./  -- uncomment when go.sum exists
+# RUN go mod download
+
+COPY services/ingestion/ ./services/ingestion/
+COPY scripts/playwright/ ./scripts/playwright/
+
+WORKDIR /app/services/ingestion
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/ingestion-service ./cmd/main.go
+
+FROM node:20-alpine
+WORKDIR /app
+
+# Install Playwright dependencies (chromium)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/lib/playwright
+RUN apk add --no-cache chromium
+
+# Copy Playwright script
+COPY scripts/playwright/package.json ./scripts/playwright/
+WORKDIR /app/scripts/playwright
+RUN npm install
+# Install only the chromium browser for playwright
+RUN npx playwright install chromium
+
+WORKDIR /app
+COPY --from=builder /app/ingestion-service /app/ingestion-service
+
+ENTRYPOINT ["/app/ingestion-service"]

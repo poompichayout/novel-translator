@@ -1,0 +1,9 @@
+{
+  "name": "novel-playwright-renderer",
+  "version": "1.0.0",
+  "description": "Minimal Playwright renderer for Go ingestion service",
+  "main": "render.js",
+  "dependencies": {
+    "playwright": "^1.42.0"
+  }
+}

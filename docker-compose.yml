@@ -1,0 +1,48 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: novel-translator-db
+    environment:
+      POSTGRES_USER: translator
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: novel_translator
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/000_init.sql
+      - ./migrations/001_init_schema.up.sql:/docker-entrypoint-initdb.d/001_init_schema.up.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U translator -d novel_translator"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ingestion
+    container_name: novel-translator-ingestion
+    environment:
+      - DB_URL=postgres://translator:password123@db:5432/novel_translator?sslmode=disable
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  alignment:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.alignment
+    container_name: novel-translator-alignment
+    environment:
+      - DB_URL=postgres://translator:password123@db:5432/novel_translator?sslmode=disable
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

@@ -1,0 +1,5 @@
+database:
+  url: postgres://translator:password123@localhost:5432/novel_translator?sslmode=disable
+scraper:
+  concurrency: 5
+  timeout_ms: 30000
