@@ -24,6 +24,7 @@ func NewEngine(concurrency int) *Engine {
 		},
 		adapters: []SiteAdapter{
 			NewNovelLiveAdapter(),
+			NewNovelOnesAdapter(),
 		},
 		concurrency: concurrency,
 	}

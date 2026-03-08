@@ -2,9 +2,10 @@
 
 build:
 	cd services/ingestion && go build -o ../../bin/ingestion-service ./cmd/main.go
+	cd scripts/playwright && npm install
 
 run: build
-	CONFIG_PATH=./config.yaml ./bin/ingestion-service scrape --url $(URL)
+	CONFIG_PATH=./config.yaml ./bin/ingestion-service scrape --url $(URL) --source-lang $(if $(SL),$(SL),en) --target-lang $(if $(TL),$(TL),th)
 
 up:
 	docker compose up -d

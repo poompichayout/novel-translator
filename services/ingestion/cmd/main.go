@@ -46,13 +46,15 @@ func main() {
 	case "scrape":
 		scrapeCmd := flag.NewFlagSet("scrape", flag.ExitOnError)
 		url := scrapeCmd.String("url", "", "URL of the novel index page")
+		sourceLang := scrapeCmd.String("source-lang", "en", "Source language code (e.g., en, th)")
+		targetLang := scrapeCmd.String("target-lang", "th", "Target language code (e.g., th, en)")
 		scrapeCmd.Parse(os.Args[2:])
 
 		if *url == "" {
 			fmt.Println("Error: --url is required")
 			os.Exit(1)
 		}
-		runScrape(ctx, cfg, *url)
+		runScrape(ctx, cfg, *url, *sourceLang, *targetLang)
 
 	case "export":
 		fmt.Println("Export command not fully implemented in Go. Use the Python alignment service for JSONL export.")
@@ -62,7 +64,7 @@ func main() {
 	}
 }
 
-func runScrape(ctx context.Context, cfg *config.Config, url string) {
+func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang string, targetLang string) {
 	log.Printf("Connecting to DB: %s", cfg.Database.URL)
 	repo, err := repository.NewPostgresRepo(ctx, cfg.Database.URL)
 	if err != nil {
@@ -74,8 +76,8 @@ func runScrape(ctx context.Context, cfg *config.Config, url string) {
 	novelID, err := repo.UpsertNovel(ctx, domain.Novel{
 		Title:      "Unknown Title (Pending Fetch)",
 		SourceURL:  url,
-		SourceLang: "en",
-		TargetLang: "th",
+		SourceLang: sourceLang,
+		TargetLang: targetLang,
 		Status:     domain.StatusInProgress,
 	})
 	if err != nil {
@@ -103,19 +105,36 @@ func runScrape(ctx context.Context, cfg *config.Config, url string) {
 	title := doc.Find("h1").First().Text()
 	if title != "" {
 		repo.UpsertNovel(ctx, domain.Novel{
-			Title:     title,
-			SourceURL: url,
-			Status:    domain.StatusInProgress,
+			Title:      title,
+			SourceURL:  url,
+			SourceLang: sourceLang,
+			TargetLang: targetLang,
+			Status:     domain.StatusInProgress,
 		})
 	}
 
 	chapters, err := adapter.ExtractChapterList(doc)
 	if err != nil || len(chapters) == 0 {
+		html, _ := doc.Html()
+		os.WriteFile("debug.html", []byte(html), 0644)
 		repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, "no chapters found")
-		log.Fatalf("No chapters found: %v", err)
+		log.Fatalf("No chapters found: %v (Saved HTML to debug.html)", err)
 	}
 
 	log.Printf("Found %d chapters. Queuing for download...", len(chapters))
+
+	// DEMONSTRATION: If only 1 chapter is found (likely a single chapter page),
+	// extract its content to prove our de-obfuscation works!
+	if len(chapters) == 1 {
+		log.Printf("Single chapter detected, extracting content...")
+		content, contentErr := adapter.ExtractChapterContent(doc)
+		if contentErr == nil {
+			os.WriteFile("chapter_output.html", []byte(content), 0644)
+			log.Printf("Successfully extracted and saved chapter content to chapter_output.html!")
+		} else {
+			log.Printf("Failed to extract content: %v", contentErr)
+		}
+	}
 
 	// Channels for batch processing
 	urls := make([]string, len(chapters))
@@ -130,9 +149,11 @@ func runScrape(ctx context.Context, cfg *config.Config, url string) {
 
 	repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusCompleted, "")
 	repo.UpsertNovel(ctx, domain.Novel{
-		Title:     title,
-		SourceURL: url,
-		Status:    domain.StatusCompleted,
+		Title:      title,
+		SourceURL:  url,
+		SourceLang: sourceLang,
+		TargetLang: targetLang,
+		Status:     domain.StatusCompleted,
 	})
 
 	log.Println("Scrape job completed successfully.")
