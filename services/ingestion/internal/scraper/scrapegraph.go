@@ -28,12 +28,16 @@ func (a *ScrapeGraphAdapter) MatchesURL(url string) bool {
 }
 
 type scrapeGraphJSON struct {
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	Error    string `json:"error"`
-	Chapters []struct {
-		Title string `json:"title"`
-		URL   string `json:"url"`
+	NovelTitle    string `json:"novel_title"`
+	NovelURL      string `json:"novel_url"`
+	ChapterTitle  string `json:"chapter_title"`
+	ChapterNumber int    `json:"chapter_number"`
+	Content       string `json:"content"`
+	Error         string `json:"error"`
+	Chapters      []struct {
+		ChapterNumber int    `json:"chapter_number"`
+		Title         string `json:"title"`
+		URL           string `json:"url"`
 	} `json:"chapters"`
 }
 
@@ -91,13 +95,16 @@ func (a *ScrapeGraphAdapter) Scrape(ctx context.Context, targetURL string) (*Scr
 	}
 
 	result := &ScrapeResult{
-		Title:   raw.Title,
-		Content: raw.Content,
+		NovelTitle:    raw.NovelTitle,
+		NovelURL:      raw.NovelURL,
+		ChapterTitle:  raw.ChapterTitle,
+		ChapterNumber: raw.ChapterNumber,
+		Content:       raw.Content,
 	}
 
-	for i, ch := range raw.Chapters {
+	for _, ch := range raw.Chapters {
 		result.Chapters = append(result.Chapters, ChapterMeta{
-			ChapterNumber: i + 1,
+			ChapterNumber: ch.ChapterNumber,
 			Title:         ch.Title,
 			URL:           ch.URL,
 		})

@@ -32,13 +32,16 @@ def main():
     
     prompt = """
     Analyze the provided webpage URL and extract its core structured data. 
-    1. If this is a novel index page or table of contents, extract the 'title' of the novel and a list of 'chapters', where each chapter has a 'title' and a 'url'.
-    2. If this is a single chapter page, extract the 'title' of the chapter and the raw text 'content' of the chapter narrative.
+    1. If this is a novel index page or table of contents, extract the 'novel_title' and a list of 'chapters', where each chapter has a 'chapter_number' (integer), a 'title' (string), and a 'url' (string).
+    2. If this is a single chapter page, extract the 'novel_title', the 'novel_url' (usually found in breadcrumbs or "up" links), the 'chapter_number' (integer), the 'chapter_title', and the raw text 'content' of the chapter narrative.
     
     Return the result strictly as a flat JSON object following this structure, do not nest it under a 'content' key:
     {
-       "title": "String",
-       "chapters": [{"title": "String", "url": "String"}],
+       "novel_title": "String (Name of the novel)",
+       "novel_url": "String (Extract from breadcrumbs if this is a single chapter page, pointing back to the index)",
+       "chapter_title": "String (Only if single chapter page)",
+       "chapter_number": "Integer (Only if single chapter page)",
+       "chapters": [{"chapter_number": "Integer", "title": "String", "url": "String"}],
        "content": "String"
     }
     Leave fields empty or null if they are not applicable.

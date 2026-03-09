@@ -13,9 +13,12 @@ type ChapterMeta struct {
 
 // ScrapeResult represents the data extracted from a page
 type ScrapeResult struct {
-	Title    string
-	Content  string
-	Chapters []ChapterMeta
+	NovelTitle    string
+	NovelURL      string
+	ChapterTitle  string
+	ChapterNumber int
+	Content       string
+	Chapters      []ChapterMeta
 }
 
 // SiteAdapter defines how to extract data

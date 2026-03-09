@@ -72,53 +72,81 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 	}
 	defer repo.Close()
 
-	// 1. Upsert Novel
-	novelID, err := repo.UpsertNovel(ctx, domain.Novel{
-		Title:      "Unknown Title (Pending Fetch)",
-		SourceURL:  url,
-		SourceLang: sourceLang,
-		TargetLang: targetLang,
-		Status:     domain.StatusInProgress,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create novel tracking record: %v", err)
-	}
-
-	jobID, _ := repo.CreateScrapeJob(ctx, novelID)
-	log.Printf("Started Scrape Job #%d for Novel %d", jobID, novelID)
-
-	// 2. Setup Scraper Engine
+	// 1. Setup Scraper Engine
 	engine := scraper.NewEngine(cfg.Scraper.Concurrency, cfg.Scraper.GeminiAPIKey)
 
 	log.Printf("Extracting page with ScrapeGraphAI: %s", url)
 	res, err := engine.ScrapePage(ctx, url)
 
 	if err != nil {
-		repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, err.Error())
 		log.Fatalf("Failed to fetch page: %v", err)
 	}
 
-	title := res.Title
-	if title != "" {
-		repo.UpsertNovel(ctx, domain.Novel{
-			Title:      title,
-			SourceURL:  url,
-			SourceLang: sourceLang,
-			TargetLang: targetLang,
-			Status:     domain.StatusInProgress,
-		})
+	// Figure out the true Novel URL and Title (in case the input URL was a chapter)
+	novelURL := url
+	if res.NovelURL != "" {
+		novelURL = res.NovelURL
 	}
+	
+	novelTitle := res.NovelTitle
+	if novelTitle == "" {
+		novelTitle = "Unknown Title"
+	}
+
+	// 2. Upsert Novel
+	novelID, err := repo.UpsertNovel(ctx, domain.Novel{
+		Title:      novelTitle,
+		SourceURL:  novelURL,
+		SourceLang: sourceLang,
+		TargetLang: targetLang,
+		Status:     domain.StatusInProgress,
+	})
+	if err != nil {
+		log.Fatalf("Failed to upsert novel record: %v", err)
+	}
+
+	// Create job since we now have the true Novel ID
+	jobID, _ := repo.CreateScrapeJob(ctx, novelID)
+	log.Printf("Started Scrape Job #%d for Novel %d", jobID, novelID)
 
 	chapters := res.Chapters
 	if len(chapters) == 0 {
 		if res.Content != "" {
 			// It could be a single chapter page
 			log.Printf("Single chapter detected, extracting content...")
+
+			// Use the dynamically extracted chapter number, defaulting to 1 if it couldn't be parsed
+			chapterNum := res.ChapterNumber
+			if chapterNum == 0 {
+				chapterNum = 1
+			}
+			
+			chapterTitle := res.ChapterTitle
+			if chapterTitle == "" {
+				chapterTitle = fmt.Sprintf("Chapter %d", chapterNum)
+			}
+
+			chapterID, err := repo.UpsertChapter(ctx, domain.Chapter{
+				NovelID:        novelID,
+				ChapterNumber:  chapterNum,
+				Title:          chapterTitle,
+				SourceURL:      url, // Single chapter URL is the one passed in
+				RawContent:     res.Content,
+				CleanedContent: "", // Requires separate pipeline/cleaning
+				ScrapeStatus:   domain.StatusCompleted,
+			})
+
+			if err != nil {
+				log.Printf("Warning: failed to upsert single chapter content: %v", err)
+			} else {
+				log.Printf("Successfully scraped and saved single chapter (ID %d) to database!", chapterID)
+			}
+
+			// For debug, still dump it
 			os.WriteFile("chapter_output.html", []byte(res.Content), 0644)
-			log.Printf("Successfully extracted and saved chapter content to chapter_output.html!")
 		} else {
 			repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, "no chapters or content found")
-			log.Fatalf("No chapters or content found (Title: %s)", title)
+			log.Fatalf("No chapters or content found (Title: %s)", novelTitle)
 		}
 	} else {
 		log.Printf("Found %d chapters. Queuing for download...", len(chapters))
@@ -127,6 +155,20 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 		urls := make([]string, len(chapters))
 		for i, c := range chapters {
 			urls[i] = c.URL
+
+			// Store chapter metadata into DB
+			chapterID, err := repo.UpsertChapter(ctx, domain.Chapter{
+				NovelID:       novelID,
+				ChapterNumber: c.ChapterNumber,
+				Title:         c.Title,
+				SourceURL:     c.URL,
+				ScrapeStatus:  domain.StatusPending, // Will be picked up by the batch processor
+			})
+			if err != nil {
+				log.Printf("Warning: failed to upsert chapter %d: %v", c.ChapterNumber, err)
+			} else {
+				log.Printf("Stored chapter %d (ID %d) in DB for later scraping", c.ChapterNumber, chapterID)
+			}
 		}
 
 		// Launch batch (simplified; real code binds results to chapters)
@@ -136,8 +178,8 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 
 	repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusCompleted, "")
 	repo.UpsertNovel(ctx, domain.Novel{
-		Title:      title,
-		SourceURL:  url,
+		Title:      novelTitle,
+		SourceURL:  novelURL,
 		SourceLang: sourceLang,
 		TargetLang: targetLang,
 		Status:     domain.StatusCompleted,
