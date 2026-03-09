@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -64,7 +65,7 @@ func main() {
 	}
 }
 
-func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang string, targetLang string) {
+func runScrape(ctx context.Context, cfg *config.Config, targetURL string, sourceLang string, targetLang string) {
 	log.Printf("Connecting to DB: %s", cfg.Database.URL)
 	repo, err := repository.NewPostgresRepo(ctx, cfg.Database.URL)
 	if err != nil {
@@ -75,17 +76,28 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 	// 1. Setup Scraper Engine
 	engine := scraper.NewEngine(cfg.Scraper.Concurrency, cfg.Scraper.GeminiAPIKey)
 
-	log.Printf("Extracting page with ScrapeGraphAI: %s", url)
-	res, err := engine.ScrapePage(ctx, url)
+	log.Printf("Extracting page with ScrapeGraphAI: %s", targetURL)
+	res, err := engine.ScrapePage(ctx, targetURL)
 
 	if err != nil {
 		log.Fatalf("Failed to fetch page: %v", err)
 	}
 
 	// Figure out the true Novel URL and Title (in case the input URL was a chapter)
-	novelURL := url
+	novelURL := targetURL
 	if res.NovelURL != "" {
-		novelURL = res.NovelURL
+		// Resolve relative URL to absolute URL if needed
+		base, err := url.Parse(targetURL)
+		if err == nil {
+			ref, err := url.Parse(res.NovelURL)
+			if err == nil {
+				novelURL = base.ResolveReference(ref).String()
+			} else {
+				novelURL = res.NovelURL
+			}
+		} else {
+			novelURL = res.NovelURL
+		}
 	}
 	
 	novelTitle := res.NovelTitle
@@ -130,7 +142,7 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 				NovelID:        novelID,
 				ChapterNumber:  chapterNum,
 				Title:          chapterTitle,
-				SourceURL:      url, // Single chapter URL is the one passed in
+				SourceURL:      targetURL, // Single chapter URL is the one passed in
 				RawContent:     res.Content,
 				CleanedContent: "", // Requires separate pipeline/cleaning
 				ScrapeStatus:   domain.StatusCompleted,
