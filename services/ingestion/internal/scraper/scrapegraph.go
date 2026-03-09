@@ -66,8 +66,11 @@ func (a *ScrapeGraphAdapter) Scrape(ctx context.Context, targetURL string) (*Scr
 	cmd := exec.CommandContext(ctx, pythonBin, scriptPath, targetURL)
 	cmd.Env = append(os.Environ(), "GEMINI_API_KEY="+a.GeminiAPIKey)
 
-	output, err := cmd.CombinedOutput()
+	// We only capture stdout so we avoid scrapegraph debug logs
+	output, err := cmd.Output()
 	if err != nil {
+		// Output might contain stdout, but we should also check stderr if we want a better error, 
+		// but getting an ExitError gives us the basics.
 		return nil, fmt.Errorf("python script failed for %s: %w, output: %s", targetURL, err, string(output))
 	}
 
