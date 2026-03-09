@@ -88,21 +88,17 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 	log.Printf("Started Scrape Job #%d for Novel %d", jobID, novelID)
 
 	// 2. Setup Scraper Engine
-	engine := scraper.NewEngine(cfg.Scraper.Concurrency)
+	engine := scraper.NewEngine(cfg.Scraper.Concurrency, cfg.Scraper.GeminiAPIKey)
 
-	// Note: For a real run we would fetch the index, get chapter list, and process in batch.
-	// This is a simplified smoke driver.
-	log.Printf("Fetching index: %s", url)
-	adapter := engine.GetAdapter(url) // Unexported in real code, but conceptually here
-	doc, err := engine.FetchDocument(ctx, url, adapter.NeedsJSRendering())
+	log.Printf("Extracting page with ScrapeGraphAI: %s", url)
+	res, err := engine.ScrapePage(ctx, url)
 
 	if err != nil {
 		repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, err.Error())
-		log.Fatalf("Failed to fetch index: %v", err)
+		log.Fatalf("Failed to fetch page: %v", err)
 	}
 
-	// Try extracting title if possible (simple heuristic)
-	title := doc.Find("h1").First().Text()
+	title := res.Title
 	if title != "" {
 		repo.UpsertNovel(ctx, domain.Novel{
 			Title:      title,
@@ -113,39 +109,30 @@ func runScrape(ctx context.Context, cfg *config.Config, url string, sourceLang s
 		})
 	}
 
-	chapters, err := adapter.ExtractChapterList(doc)
-	if err != nil || len(chapters) == 0 {
-		html, _ := doc.Html()
-		os.WriteFile("debug.html", []byte(html), 0644)
-		repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, "no chapters found")
-		log.Fatalf("No chapters found: %v (Saved HTML to debug.html)", err)
-	}
-
-	log.Printf("Found %d chapters. Queuing for download...", len(chapters))
-
-	// DEMONSTRATION: If only 1 chapter is found (likely a single chapter page),
-	// extract its content to prove our de-obfuscation works!
-	if len(chapters) == 1 {
-		log.Printf("Single chapter detected, extracting content...")
-		content, contentErr := adapter.ExtractChapterContent(doc)
-		if contentErr == nil {
-			os.WriteFile("chapter_output.html", []byte(content), 0644)
+	chapters := res.Chapters
+	if len(chapters) == 0 {
+		if res.Content != "" {
+			// It could be a single chapter page
+			log.Printf("Single chapter detected, extracting content...")
+			os.WriteFile("chapter_output.html", []byte(res.Content), 0644)
 			log.Printf("Successfully extracted and saved chapter content to chapter_output.html!")
 		} else {
-			log.Printf("Failed to extract content: %v", contentErr)
+			repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, "no chapters or content found")
+			log.Fatalf("No chapters or content found (Title: %s)", title)
 		}
-	}
+	} else {
+		log.Printf("Found %d chapters. Queuing for download...", len(chapters))
 
-	// Channels for batch processing
-	urls := make([]string, len(chapters))
-	for i, c := range chapters {
-		// Note: resolve relative URLs in a real implementation
-		urls[i] = c.URL
-	}
+		// Channels for batch processing
+		urls := make([]string, len(chapters))
+		for i, c := range chapters {
+			urls[i] = c.URL
+		}
 
-	// Launch batch (simplified; real code binds results to chapters)
-	// For MVP demonstration, we just mark it complete
-	time.Sleep(2 * time.Second) // simulate time
+		// Launch batch (simplified; real code binds results to chapters)
+		// For MVP demonstration, we just mark it complete
+		time.Sleep(2 * time.Second) // simulate time
+	}
 
 	repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusCompleted, "")
 	repo.UpsertNovel(ctx, domain.Novel{

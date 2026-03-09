@@ -1,3 +1,5 @@
 **/node_modules/
 **/bin/
 debug.html
+**/.venv/
+config.yaml

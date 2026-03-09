@@ -12,8 +12,9 @@ type Config struct {
 		URL string `yaml:"url"`
 	} `yaml:"database"`
 	Scraper struct {
-		Concurrency int `yaml:"concurrency"`
-		TimeoutMs   int `yaml:"timeout_ms"`
+		Concurrency  int    `yaml:"concurrency"`
+		TimeoutMs    int    `yaml:"timeout_ms"`
+		GeminiAPIKey string `yaml:"gemini_api_key"`
 	} `yaml:"scraper"`
 }
 
@@ -31,6 +32,9 @@ func Load(path string) (*Config, error) {
 	// Override with environment variables if present
 	if envURL := os.Getenv("DB_URL"); envURL != "" {
 		cfg.Database.URL = envURL
+	}
+	if geminiKey := os.Getenv("GEMINI_API_KEY"); geminiKey != "" {
+		cfg.Scraper.GeminiAPIKey = geminiKey
 	}
 
 	// Set defaults if missing

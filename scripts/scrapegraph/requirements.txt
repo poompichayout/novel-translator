@@ -1,0 +1,5 @@
+scrapegraphai
+playwright
+nest_asyncio
+google-genai
+langchain-google-genai
