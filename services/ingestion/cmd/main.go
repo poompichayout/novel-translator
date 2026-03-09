@@ -99,7 +99,7 @@ func runScrape(ctx context.Context, cfg *config.Config, targetURL string, source
 			novelURL = res.NovelURL
 		}
 	}
-	
+
 	novelTitle := res.NovelTitle
 	if novelTitle == "" {
 		novelTitle = "Unknown Title"
@@ -132,7 +132,7 @@ func runScrape(ctx context.Context, cfg *config.Config, targetURL string, source
 			if chapterNum == 0 {
 				chapterNum = 1
 			}
-			
+
 			chapterTitle := res.ChapterTitle
 			if chapterTitle == "" {
 				chapterTitle = fmt.Sprintf("Chapter %d", chapterNum)
@@ -153,9 +153,6 @@ func runScrape(ctx context.Context, cfg *config.Config, targetURL string, source
 			} else {
 				log.Printf("Successfully scraped and saved single chapter (ID %d) to database!", chapterID)
 			}
-
-			// For debug, still dump it
-			os.WriteFile("chapter_output.html", []byte(res.Content), 0644)
 		} else {
 			repo.UpdateScrapeJobStatus(ctx, jobID, domain.StatusFailed, "no chapters or content found")
 			log.Fatalf("No chapters or content found (Title: %s)", novelTitle)

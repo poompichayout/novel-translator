@@ -7,6 +7,20 @@ from scrapegraphai.graphs import SmartScraperGraph
 
 nest_asyncio.apply()
 
+llm_config = {
+    "gemini": {
+        "api_key": os.environ.get("GEMINI_API_KEY"),
+        "model": "google_genai/gemini-2.5-flash", 
+        "max_tokens": 8192
+    },
+    "runpod": {
+        "api_key": os.environ.get("RUNPOD_API_KEY"),
+        "model": "openai/llama3", 
+        "base_url": f"https://api.runpod.ai/v2/{os.environ.get('RUNPOD_MODEL_ID')}/openai/v1",
+        "max_tokens": 8192
+    }
+}
+
 def main():
     if len(sys.argv) < 2:
         print(json.dumps({"error": "URL target is required"}))
@@ -15,17 +29,14 @@ def main():
     url = sys.argv[1]
     
     # Retrieve GEMINI_API_KEY from environment variables instead of hardcoding
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print(json.dumps({"error": "GEMINI_API_KEY environment variable is not set"}))
+    model_choice: str = os.environ.get("MODEL_CHOICE") or ''
+    if model_choice not in llm_config:
+        print(json.dumps({"error": "MODEL_CHOICE environment variable is not set"}))
         sys.exit(1)
-
+        return
+    
     graph_config = {
-        "llm": {
-            "api_key": api_key,
-            "model": "google_genai/gemini-2.5-flash", 
-            "max_tokens": 8192
-        },
+        "llm": llm_config,
         "verbose": False,
         "headless": True
     }
