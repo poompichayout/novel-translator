@@ -73,7 +73,13 @@ func (h *Handlers) PastePage(w http.ResponseWriter, r *http.Request) {
 
 // stubs filled in by later tasks
 func (h *Handlers) ListNovels(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not yet", http.StatusNotImplemented)
+	novels, err := h.Repo.ListNovels(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(novels)
 }
 func (h *Handlers) ListChapters(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not yet", http.StatusNotImplemented)

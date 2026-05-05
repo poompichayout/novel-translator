@@ -106,3 +106,21 @@ func TestPastePage(t *testing.T) {
 		}
 	}
 }
+
+func TestListNovelsHandler(t *testing.T) {
+	repo := newFakeRepo()
+	_, _ = repo.UpsertNovel(context.Background(), domain.Novel{Title: "A", SourceURL: "u1", SourceLang: "en", TargetLang: "th"})
+	_, _ = repo.UpsertNovel(context.Background(), domain.Novel{Title: "B", SourceURL: "u2", SourceLang: "en", TargetLang: "th"})
+	h := &Handlers{Repo: repo}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/novels", nil)
+	rr := httptest.NewRecorder()
+	h.ListNovels(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), `"title":"A"`) {
+		t.Errorf("expected JSON with novel A, got %s", rr.Body.String())
+	}
+}
