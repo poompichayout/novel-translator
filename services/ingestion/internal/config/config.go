@@ -17,6 +17,10 @@ type Config struct {
 	LLM struct {
 		AnthropicAPIKey string `yaml:"anthropic_api_key"`
 	} `yaml:"llm"`
+	Server struct {
+		Addr     string `yaml:"addr"`
+		Password string `yaml:"password"`
+	} `yaml:"server"`
 }
 
 func Load(path string) (*Config, error) {
@@ -38,6 +42,15 @@ func Load(path string) (*Config, error) {
 	}
 	if k := os.Getenv("ANTHROPIC_API_KEY"); k != "" {
 		cfg.LLM.AnthropicAPIKey = k
+	}
+	if v := os.Getenv("SERVER_ADDR"); v != "" {
+		cfg.Server.Addr = v
+	}
+	if v := os.Getenv("SERVER_PASSWORD"); v != "" {
+		cfg.Server.Password = v
+	}
+	if cfg.Server.Addr == "" {
+		cfg.Server.Addr = ":8080"
 	}
 
 	return &cfg, nil
