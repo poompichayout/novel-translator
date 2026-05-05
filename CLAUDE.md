@@ -27,7 +27,7 @@ make up            # docker compose up -d (db + ingestion containers)
 make down
 make db-logs
 make build         # builds Go binary to bin/ingestion-service
-make serve         # build + run `serve` (paste-to-DB HTTP server — STUB, exits 2)
+make serve         # build + run `serve` (paste-to-DB HTTP server on :8080; needs SERVER_PASSWORD env or config.yaml server.password)
 make translate     # build + run `translate` (translation worker — STUB, exits 2)
 make clean         # rm -rf bin/
 
@@ -39,7 +39,9 @@ CONFIG_PATH=./config.yaml ./bin/ingestion-service translate
 cd services/alignment && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 DB_URL=postgres://translator:password123@localhost:5432/novel_translator .venv/bin/python aligner.py
 
-# Tests: none exist yet.
+# Tests
+cd services/ingestion && go test ./...                                # unit tests (cleaner, server)
+cd services/ingestion && TEST_DB_URL=postgres://translator:password123@localhost:5432/novel_translator?sslmode=disable go test ./internal/repository/...  # integration; skipped when TEST_DB_URL unset
 ```
 
 `make build` no longer creates a `.venv` or installs Chromium — those steps were tied to the dropped scraper. The alignment venv is bootstrapped manually as shown above.
