@@ -66,6 +66,18 @@ func NeedsTIS620Decoding(s string) bool {
 	return false 
 }
 
+// StripChapterHeader removes a leading "Chapter N[: title]" or "第N章 ..." line if present.
+func StripChapterHeader(text string) string {
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)^\s*chapter\s+\d+[^\n]*\n`),
+		regexp.MustCompile(`^\s*第[一二三四五六七八九十百千零\d]+章[^\n]*\n`),
+	}
+	for _, re := range patterns {
+		text = re.ReplaceAllString(text, "")
+	}
+	return text
+}
+
 // DecodeTIS620 converts Windows-874/TIS-620 to UTF-8
 func DecodeTIS620(s string) (string, error) {
 	decoder := charmap.Windows874.NewDecoder()
