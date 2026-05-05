@@ -1,6 +1,8 @@
 package cleaner
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestStripChapterHeader(t *testing.T) {
 	cases := []struct {
@@ -20,5 +22,22 @@ func TestStripChapterHeader(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestStripTranslatorNotes(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"He looked. [T/N: subtle reference]", "He looked. "},
+		{"\"Master.\" (TL note: master is shifu)", "\"Master.\" "},
+		{"Plain prose with no notes.", "Plain prose with no notes."},
+		{"Multi (TN: foo) chunks (T/N: bar) here.", "Multi  chunks  here."},
+	}
+	for _, tc := range cases {
+		got := StripTranslatorNotes(tc.in)
+		if got != tc.want {
+			t.Errorf("StripTranslatorNotes(%q) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }

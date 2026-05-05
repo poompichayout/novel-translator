@@ -78,6 +78,19 @@ func StripChapterHeader(text string) string {
 	return text
 }
 
+// StripTranslatorNotes removes inline translator notes such as [T/N: ...], (TL note: ...), (TN: ...).
+// Trailing whitespace before/after the removal is left in place; callers should normalize whitespace.
+func StripTranslatorNotes(text string) string {
+	patterns := []*regexp.Regexp{
+		regexp.MustCompile(`\[T/?N:[^\]]*\]`),
+		regexp.MustCompile(`\((?:TL note|TN|T/N|Translator note)[^)]*\)`),
+	}
+	for _, re := range patterns {
+		text = re.ReplaceAllString(text, "")
+	}
+	return text
+}
+
 // DecodeTIS620 converts Windows-874/TIS-620 to UTF-8
 func DecodeTIS620(s string) (string, error) {
 	decoder := charmap.Windows874.NewDecoder()
