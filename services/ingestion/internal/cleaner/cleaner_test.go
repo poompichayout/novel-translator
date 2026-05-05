@@ -41,3 +41,12 @@ func TestStripTranslatorNotes(t *testing.T) {
 		}
 	}
 }
+
+func TestStripPromoLines(t *testing.T) {
+	in := "He walked in.\nRead at example-novel-site.com for free!\nIt was cold.\nVisit https://novelhost.io for more.\nEnd."
+	want := "He walked in.\nIt was cold.\nEnd."
+	got := StripPromoLines(in)
+	if got != want {
+		t.Errorf("StripPromoLines mismatch.\nin:\n%s\ngot:\n%s\nwant:\n%s", in, got, want)
+	}
+}

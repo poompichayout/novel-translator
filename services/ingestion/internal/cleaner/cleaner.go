@@ -91,6 +91,20 @@ func StripTranslatorNotes(text string) string {
 	return text
 }
 
+// StripPromoLines removes whole lines that look like ad/promo references to source sites.
+func StripPromoLines(text string) string {
+	promo := regexp.MustCompile(`(?i)^.*(read at|visit|please support|original at)\b.*$`)
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if promo.MatchString(strings.TrimSpace(line)) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
 // DecodeTIS620 converts Windows-874/TIS-620 to UTF-8
 func DecodeTIS620(s string) (string, error) {
 	decoder := charmap.Windows874.NewDecoder()
