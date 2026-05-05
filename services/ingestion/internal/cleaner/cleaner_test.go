@@ -50,3 +50,15 @@ func TestStripPromoLines(t *testing.T) {
 		t.Errorf("StripPromoLines mismatch.\nin:\n%s\ngot:\n%s\nwant:\n%s", in, got, want)
 	}
 }
+
+func TestFullCleanChapter(t *testing.T) {
+	raw := "<p>Chapter 5: Awakening</p>\n<p>He woke up. [T/N: literal]</p>\n<p>Read at example.com.</p>\n<p>It was bright.</p>"
+	got, err := FullCleanChapter(raw)
+	if err != nil {
+		t.Fatalf("FullCleanChapter err: %v", err)
+	}
+	want := "He woke up. It was bright."
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}

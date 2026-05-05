@@ -10,35 +10,41 @@ import (
 	"golang.org/x/text/transform"
 )
 
-// CleanHTMLPipeline removes HTML tags, normalizes whitespace, and handles Thai encoding
-func CleanHTMLPipeline(rawHTML string) (string, error) {
-	// 1. Strip HTML tags via goquery
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
+// stripHTMLTags removes HTML tags and returns plain text with block-level newlines preserved.
+// Block tags (p/div/li/h1-h6/br) become \n so downstream line-aware strippers see paragraph structure.
+func stripHTMLTags(rawHTML string) (string, error) {
+	blockBreaks := regexp.MustCompile(`(?i)</(p|div|li|h[1-6])>|<br\s*/?>`)
+	pre := blockBreaks.ReplaceAllString(rawHTML, "\n")
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(pre))
 	if err != nil {
 		return "", err
 	}
-	text := doc.Text()
+	return doc.Text(), nil
+}
 
-	// 2. Normalize whitespace (collapse multiple spaces/newlines)
+// normalizeText collapses whitespace, strips zero-width chars, and decodes TIS-620 if needed.
+func normalizeText(text string) string {
 	reSpace := regexp.MustCompile(`\s+`)
 	text = reSpace.ReplaceAllString(text, " ")
 	text = strings.TrimSpace(text)
 
-	// 3. Thai-specific: Look for common mojibake or check if it needs TIS-620 conversion
-	// Note: Modern scraping usually gets UTF-8, but older Thai sites might use TIS-620/Windows-874.
-	// For this MVP, we provide a basic heuristic or assume the user will configure if TIS-620.
 	if NeedsTIS620Decoding(text) {
 		text, _ = DecodeTIS620(text)
 	}
 
-	// 4. Clean ZWNJ/ZWJ (Zero Width Non-Joiner/Joiner) which often messes up Thai NLP
 	text = strings.ReplaceAll(text, "\u200C", "")
 	text = strings.ReplaceAll(text, "\u200D", "")
-	
-	// 5. Clean common zero-width spaces
 	text = strings.ReplaceAll(text, "\u200B", "")
+	return text
+}
 
-	return text, nil
+// CleanHTMLPipeline removes HTML tags, normalizes whitespace, and handles Thai encoding.
+func CleanHTMLPipeline(rawHTML string) (string, error) {
+	text, err := stripHTMLTags(rawHTML)
+	if err != nil {
+		return "", err
+	}
+	return normalizeText(text), nil
 }
 
 // ExtractSentences provides a basic heuristic for splitting sentences
@@ -103,6 +109,20 @@ func StripPromoLines(text string) string {
 		out = append(out, line)
 	}
 	return strings.Join(out, "\n")
+}
+
+// FullCleanChapter runs the full chapter-cleaning pipeline:
+// HTML strip (block tags → newlines) → header strip → translator notes strip → promo strip → whitespace + zero-width normalize.
+// HTML stripping happens first so the line-aware strippers see paragraph structure.
+func FullCleanChapter(raw string) (string, error) {
+	text, err := stripHTMLTags(raw)
+	if err != nil {
+		return "", err
+	}
+	text = StripChapterHeader(text)
+	text = StripTranslatorNotes(text)
+	text = StripPromoLines(text)
+	return normalizeText(text), nil
 }
 
 // DecodeTIS620 converts Windows-874/TIS-620 to UTF-8
