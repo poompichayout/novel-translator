@@ -160,3 +160,36 @@ func TestCreateChapterCleansAndUpserts(t *testing.T) {
 		t.Errorf("response missing confirmation: %s", rr.Body.String())
 	}
 }
+
+func TestListChaptersHandler(t *testing.T) {
+	repo := newFakeRepo()
+	novelID, _ := repo.UpsertNovel(context.Background(), domain.Novel{Title: "X", SourceURL: "x"})
+	for n := 1; n <= 2; n++ {
+		_, _ = repo.UpsertChapter(context.Background(), domain.Chapter{
+			NovelID: novelID, ChapterNumber: n, Title: "t", ScrapeStatus: domain.StatusCompleted,
+		})
+	}
+	h := &Handlers{Repo: repo}
+
+	t.Run("missing novel_id", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/chapters", nil)
+		rr := httptest.NewRecorder()
+		h.ListChapters(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected 400, got %d", rr.Code)
+		}
+	})
+
+	t.Run("returns chapters", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/chapters?novel_id="+strconv.Itoa(novelID), nil)
+		rr := httptest.NewRecorder()
+		h.ListChapters(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", rr.Code)
+		}
+		body := rr.Body.String()
+		if !strings.Contains(body, `"chapter_number":1`) || !strings.Contains(body, `"chapter_number":2`) {
+			t.Errorf("unexpected body: %s", body)
+		}
+	})
+}

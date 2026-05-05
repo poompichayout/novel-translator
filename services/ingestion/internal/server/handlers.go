@@ -82,7 +82,23 @@ func (h *Handlers) ListNovels(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(novels)
 }
 func (h *Handlers) ListChapters(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not yet", http.StatusNotImplemented)
+	idStr := r.URL.Query().Get("novel_id")
+	if idStr == "" {
+		http.Error(w, "novel_id required", http.StatusBadRequest)
+		return
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "novel_id must be int", http.StatusBadRequest)
+		return
+	}
+	chs, err := h.Repo.ListChapters(r.Context(), id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(chs)
 }
 func (h *Handlers) CreateChapter(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
