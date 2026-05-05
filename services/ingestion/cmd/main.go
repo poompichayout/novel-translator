@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/poompich/novel-translator/services/ingestion/internal/config"
 	"github.com/poompich/novel-translator/services/ingestion/internal/repository"
+	"github.com/poompich/novel-translator/services/ingestion/internal/server"
 )
 
 func main() {
@@ -32,9 +35,14 @@ func main() {
 		} else {
 			cfg.Database.URL = "postgres://translator:password123@localhost:5432/novel_translator?sslmode=disable"
 		}
+		cfg.Server.Addr = ":8080"
+		if pwd := os.Getenv("SERVER_PASSWORD"); pwd != "" {
+			cfg.Server.Password = pwd
+		}
 	}
 
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	repo, err := repository.NewPostgresRepo(ctx, cfg.Database.URL)
 	if err != nil {
@@ -44,8 +52,13 @@ func main() {
 
 	switch cmd {
 	case "serve":
-		log.Println("serve: paste-to-DB tool not implemented yet (Phase 1, Week 1)")
-		os.Exit(2)
+		if cfg.Server.Password == "" {
+			log.Fatal("server.password not set in config or SERVER_PASSWORD env")
+		}
+		h := &server.Handlers{Repo: repo}
+		if err := server.Run(ctx, h, cfg.Server.Addr, cfg.Server.Password); err != nil {
+			log.Fatalf("serve: %v", err)
+		}
 	case "translate":
 		log.Println("translate: translation worker not implemented yet (Phase 1, Week 3)")
 		os.Exit(2)

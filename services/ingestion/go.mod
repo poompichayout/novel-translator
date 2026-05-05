@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
+	github.com/go-chi/chi/v5 v5.1.0
 	github.com/jackc/pgx/v5 v5.8.0
 	golang.org/x/text v0.34.0
 	gopkg.in/yaml.v3 v3.0.1
