@@ -1,0 +1,44 @@
+{{define "content"}}
+<form hx-post="/api/chapters" hx-target="#result" hx-swap="innerHTML"
+      class="space-y-4 bg-white p-6 rounded shadow">
+  <div>
+    <label class="block text-sm font-medium">Novel</label>
+    <select name="novel_id" class="mt-1 block w-full border rounded p-2">
+      <option value="">— New Novel —</option>
+      {{range .Novels}}
+        <option value="{{.ID}}">{{.Title}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <fieldset class="border p-3 rounded">
+    <legend class="text-sm font-medium px-2">If new novel</legend>
+    <input type="text" name="title" placeholder="Title"
+           class="mt-1 block w-full border rounded p-2">
+    <input type="text" name="source_url" placeholder="Source URL (e.g., site/novel/slug)"
+           class="mt-2 block w-full border rounded p-2">
+    <div class="flex gap-2 mt-2">
+      <input type="text" name="source_lang" value="en" class="border rounded p-2 w-24">
+      <input type="text" name="target_lang" value="th" class="border rounded p-2 w-24">
+    </div>
+  </fieldset>
+
+  <div class="grid grid-cols-3 gap-2">
+    <input type="number" name="chapter_number" placeholder="Chapter #"
+           class="border rounded p-2">
+    <input type="text" name="chapter_title" placeholder="Chapter title"
+           class="border rounded p-2 col-span-2">
+  </div>
+  <input type="text" name="chapter_source_url" placeholder="Chapter source URL"
+         class="border rounded p-2 w-full">
+
+  <textarea name="raw_content" rows="20" placeholder="Raw content (paste here)"
+            class="block w-full border rounded p-2 font-mono text-sm"></textarea>
+
+  <div class="flex items-center gap-4">
+    <label class="text-sm"><input type="checkbox" name="auto_clean" checked> Auto-clean</label>
+    <button class="bg-slate-800 text-white px-4 py-2 rounded">Save</button>
+  </div>
+</form>
+<div id="result" class="mt-6"></div>
+{{end}}

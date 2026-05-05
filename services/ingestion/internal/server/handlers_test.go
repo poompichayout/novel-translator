@@ -84,3 +84,25 @@ func TestCreateNovelHandler(t *testing.T) {
 		t.Errorf("got title %q", repo.novels[0].Title)
 	}
 }
+
+func TestPastePage(t *testing.T) {
+	repo := newFakeRepo()
+	_, _ = repo.UpsertNovel(context.Background(), domain.Novel{
+		Title: "Existing", SourceURL: "https://ex.test/e", SourceLang: "en", TargetLang: "th", Status: domain.StatusPending,
+	})
+	h := &Handlers{Repo: repo}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	h.PastePage(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+	body := rr.Body.String()
+	for _, want := range []string{"Paste-to-DB", "Existing", "Raw content", `name="raw_content"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body missing %q", want)
+		}
+	}
+}
