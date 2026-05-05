@@ -85,7 +85,60 @@ func (h *Handlers) ListChapters(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not yet", http.StatusNotImplemented)
 }
 func (h *Handlers) CreateChapter(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not yet", http.StatusNotImplemented)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+
+	novelID, err := parseIntForm(r, "novel_id")
+	if err != nil {
+		http.Error(w, "novel_id required", http.StatusBadRequest)
+		return
+	}
+	chapterNumber, err := parseIntForm(r, "chapter_number")
+	if err != nil {
+		http.Error(w, "chapter_number required", http.StatusBadRequest)
+		return
+	}
+	raw := r.FormValue("raw_content")
+	if raw == "" {
+		http.Error(w, "raw_content required", http.StatusBadRequest)
+		return
+	}
+
+	cleaned := raw
+	if r.FormValue("auto_clean") == "on" {
+		c, err := cleaner.FullCleanChapter(raw)
+		if err != nil {
+			http.Error(w, "clean failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cleaned = c
+	}
+
+	id, err := h.Repo.UpsertChapter(r.Context(), domain.Chapter{
+		NovelID:        novelID,
+		ChapterNumber:  chapterNumber,
+		Title:          r.FormValue("chapter_title"),
+		RawContent:     raw,
+		CleanedContent: cleaned,
+		SourceURL:      r.FormValue("chapter_source_url"),
+		ScrapeStatus:   domain.StatusCompleted,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := renderPartial(w, "chapter_saved.html", map[string]any{
+		"NovelID":       novelID,
+		"ChapterID":     id,
+		"ChapterNumber": chapterNumber,
+		"CleanedLen":    len(cleaned),
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func parseIntForm(r *http.Request, key string) (int, error) {
@@ -96,4 +149,3 @@ func parseIntForm(r *http.Request, key string) (int, error) {
 	return strconv.Atoi(v)
 }
 
-var _ = cleaner.FullCleanChapter // referenced by CreateChapter in Task 13

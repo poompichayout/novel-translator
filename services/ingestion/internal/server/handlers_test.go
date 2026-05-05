@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -122,5 +124,39 @@ func TestListNovelsHandler(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), `"title":"A"`) {
 		t.Errorf("expected JSON with novel A, got %s", rr.Body.String())
+	}
+}
+
+func TestCreateChapterCleansAndUpserts(t *testing.T) {
+	repo := newFakeRepo()
+	novelID, _ := repo.UpsertNovel(context.Background(), domain.Novel{
+		Title: "N", SourceURL: "u", SourceLang: "en", TargetLang: "th",
+	})
+	h := &Handlers{Repo: repo}
+
+	form := strings.NewReader(
+		"novel_id=" + strconv.Itoa(novelID) +
+			"&chapter_number=1&chapter_title=Awakening" +
+			"&chapter_source_url=https%3A%2F%2Fex.test%2Fn%2F1" +
+			"&raw_content=" + url.QueryEscape("<p>Chapter 1: Awakening</p><p>He woke up. [T/N: literal]</p><p>Read at example.com.</p><p>It was bright.</p>") +
+			"&auto_clean=on",
+	)
+	req := httptest.NewRequest(http.MethodPost, "/api/chapters", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	h.CreateChapter(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	chs := repo.chapters[novelID]
+	if len(chs) != 1 {
+		t.Fatalf("expected 1 chapter, got %d", len(chs))
+	}
+	if chs[0].CleanedContent != "He woke up. It was bright." {
+		t.Errorf("cleaned_content = %q", chs[0].CleanedContent)
+	}
+	if !strings.Contains(rr.Body.String(), "Saved chapter 1") {
+		t.Errorf("response missing confirmation: %s", rr.Body.String())
 	}
 }
