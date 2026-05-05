@@ -3,3 +3,6 @@
 debug.html
 **/.venv/
 config.yaml
+services/ingestion/main
+*.exe
+docs/*.txt

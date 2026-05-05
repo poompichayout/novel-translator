@@ -11,11 +11,12 @@ type Config struct {
 	Database struct {
 		URL string `yaml:"url"`
 	} `yaml:"database"`
-	Scraper struct {
-		Concurrency  int    `yaml:"concurrency"`
-		TimeoutMs    int    `yaml:"timeout_ms"`
+	Embedding struct {
 		GeminiAPIKey string `yaml:"gemini_api_key"`
-	} `yaml:"scraper"`
+	} `yaml:"embedding"`
+	LLM struct {
+		AnthropicAPIKey string `yaml:"anthropic_api_key"`
+	} `yaml:"llm"`
 }
 
 func Load(path string) (*Config, error) {
@@ -29,20 +30,14 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse yaml config: %w", err)
 	}
 
-	// Override with environment variables if present
 	if envURL := os.Getenv("DB_URL"); envURL != "" {
 		cfg.Database.URL = envURL
 	}
-	if geminiKey := os.Getenv("GEMINI_API_KEY"); geminiKey != "" {
-		cfg.Scraper.GeminiAPIKey = geminiKey
+	if k := os.Getenv("GEMINI_API_KEY"); k != "" {
+		cfg.Embedding.GeminiAPIKey = k
 	}
-
-	// Set defaults if missing
-	if cfg.Scraper.Concurrency <= 0 {
-		cfg.Scraper.Concurrency = 5
-	}
-	if cfg.Scraper.TimeoutMs <= 0 {
-		cfg.Scraper.TimeoutMs = 30000
+	if k := os.Getenv("ANTHROPIC_API_KEY"); k != "" {
+		cfg.LLM.AnthropicAPIKey = k
 	}
 
 	return &cfg, nil

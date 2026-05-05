@@ -25,21 +25,6 @@ services:
     container_name: novel-translator-ingestion
     environment:
       - DB_URL=postgres://translator:password123@db:5432/novel_translator?sslmode=disable
-    volumes:
-      - .:/app
-    depends_on:
-      db:
-        condition: service_healthy
-
-  alignment:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.alignment
-    container_name: novel-translator-alignment
-    environment:
-      - DB_URL=postgres://translator:password123@db:5432/novel_translator?sslmode=disable
-    volumes:
-      - .:/app
     depends_on:
       db:
         condition: service_healthy
